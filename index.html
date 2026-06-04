@@ -1,0 +1,23 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Blaze Live Widget Test</title>
+</head>
+<body>
+  <div id="blaze-live-widget"></div>
+
+  <script>
+    window.BlazeLiveWidgetConfig = {
+      firebaseConfig: {
+  apiKey: "AIzaSyCwTfq7SEr2gYdYrgZYf73NIqoLFM2QDYA",
+  authDomain: "blaze-production-live.firebaseapp.com",
+  projectId: "blaze-production-live",
+      },
+      configPath: "livePage/config"
+    };
+  </script>
+
+  <script type="module" src="./blaze-live-widget.js"></script>
+</body>
+</html>
