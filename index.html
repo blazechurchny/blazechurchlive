@@ -2,22 +2,541 @@
 <html>
 <head>
   <meta charset="UTF-8" />
-  <title>Blaze Live Widget Test</title>
-</head>
-<body>
-  <div id="blaze-live-widget"></div>
+  <title>Blaze Church Live</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <script>
-    window.BlazeLiveWidgetConfig = {
+  <style>
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+      width: 100%;
+      min-height: 100%;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    body {
+      overflow-x: hidden;
+    }
+
+    #blaze-live-widget {
+      width: 100%;
+      min-height: 300px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="blaze-live-widget">
+    <div style="padding:32px;text-align:center;font-weight:800;">
+      Loading Blaze Live...
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import {
+      getFirestore,
+      doc,
+      onSnapshot
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+    const root = document.getElementById("blaze-live-widget");
+
+    const settings = {
       firebaseConfig: {
-  apiKey: "AIzaSyCwTfq7SEr2gYdYrgZYf73NIqoLFM2QDYA",
-  authDomain: "blaze-production-live.firebaseapp.com",
-  projectId: "blaze-production-live",
+        apiKey: "AIzaSyCwTfq7SEr2gYdYrgZYf73NIqoLFM2QDYA",
+        authDomain: "blaze-production-live.firebaseapp.com",
+        projectId: "blaze-production-live"
       },
       configPath: "livePage/config"
     };
-  </script>
 
-  <script type="module" src="https://blaze-production-live.web.app/blaze-live-widget.js"></script>
+    const app = initializeApp(settings.firebaseConfig);
+    const db = getFirestore(app);
+
+    const [collectionName, documentName] = settings.configPath.split("/");
+    const configRef = doc(db, collectionName, documentName);
+
+    let countdownTimer = null;
+
+    const css = `
+      .blaze-live-wrap {
+        font-family: Arial, Helvetica, sans-serif;
+        color: #111827;
+        background: #ffffff;
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      .blaze-live-inner {
+        max-width: 1280px;
+        margin: 0 auto;
+        padding: 48px 24px;
+        box-sizing: border-box;
+      }
+
+      .blaze-live-card {
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        min-height: 520px;
+        background: #f3f4f6;
+        border-radius: 28px;
+        overflow: hidden;
+        box-sizing: border-box;
+        box-shadow: 0 18px 50px rgba(17, 24, 39, 0.10);
+        border: 1px solid rgba(17, 24, 39, 0.06);
+      }
+
+      .blaze-live-offline-card {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 360px;
+      }
+
+      .blaze-live-offline-card.no-service-times {
+        grid-template-columns: 1fr;
+      }
+
+      .blaze-live-countdown-area {
+        min-width: 0;
+        padding: 56px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+      }
+
+      .blaze-live-countdown-content {
+        max-width: 760px;
+      }
+
+      .blaze-live-title {
+        font-size: clamp(24px, 2.2vw, 42px);
+        font-weight: 900;
+        margin: 0 0 14px;
+        letter-spacing: -0.03em;
+      }
+
+      .blaze-live-message {
+        font-size: clamp(18px, 1.35vw, 26px);
+        line-height: 1.4;
+        margin: 0 0 34px;
+        color: #374151;
+      }
+
+      .blaze-live-countdown {
+        font-size: clamp(30px, 4vw, 68px);
+        font-weight: 900;
+        line-height: 1.08;
+        letter-spacing: -0.05em;
+        color: #111827;
+      }
+
+      .blaze-live-after-message {
+        font-size: clamp(28px, 3.2vw, 54px);
+        font-weight: 900;
+        line-height: 1.12;
+        letter-spacing: -0.04em;
+        color: #111827;
+      }
+
+      .blaze-live-service-times {
+        background: #ffffff;
+        padding: 48px 34px;
+        border-left: 1px solid rgba(17, 24, 39, 0.08);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+
+      .blaze-live-service-times h2 {
+        font-size: clamp(24px, 1.8vw, 34px);
+        line-height: 1;
+        margin: 0 0 28px;
+        letter-spacing: -0.04em;
+      }
+
+      .blaze-live-service-section {
+        margin-bottom: 26px;
+        padding-bottom: 24px;
+        border-bottom: 1px solid #e5e7eb;
+      }
+
+      .blaze-live-service-section:last-child {
+        margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: 0;
+      }
+
+      .blaze-live-service-section strong {
+        display: block;
+        font-size: 16px;
+        margin-bottom: 8px;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .blaze-live-service-section div {
+        font-size: clamp(20px, 1.5vw, 28px);
+        font-weight: 800;
+        line-height: 1.25;
+        color: #111827;
+      }
+
+      .blaze-live-live-card {
+        background: #f3f4f6;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 42px;
+      }
+
+      .blaze-live-date {
+        text-align: center;
+        font-size: clamp(17px, 1.25vw, 22px);
+        font-weight: 800;
+        margin-bottom: 18px;
+        color: #111827;
+      }
+
+      .blaze-live-video-shell {
+        width: 100%;
+        max-width: 1040px;
+        margin: 0 auto;
+      }
+
+      .blaze-live-video {
+        position: relative;
+        padding-top: 56.25%;
+        background: #000;
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 14px 36px rgba(0, 0, 0, 0.18);
+      }
+
+      .blaze-live-video iframe {
+        border: none;
+        position: absolute;
+        inset: 0;
+        height: 100%;
+        width: 100%;
+      }
+
+      .blaze-live-translate {
+        text-align: center;
+        margin-top: 24px;
+        font-size: 18px;
+        color: #374151;
+      }
+
+      .blaze-live-translate a {
+        display: inline-block;
+        margin-left: 8px;
+        padding: 11px 18px;
+        border-radius: 999px;
+        background: #f97316;
+        color: white;
+        text-decoration: none;
+        font-weight: 800;
+      }
+
+      .blaze-live-error {
+        padding: 24px;
+        font-family: Arial, sans-serif;
+        color: #991b1b;
+        background: #fee2e2;
+        border-radius: 12px;
+        margin: 24px;
+      }
+
+      @media (max-width: 900px) {
+        .blaze-live-inner {
+          padding: 28px 16px;
+        }
+
+        .blaze-live-card {
+          aspect-ratio: auto;
+          min-height: auto;
+          border-radius: 22px;
+        }
+
+        .blaze-live-offline-card {
+          grid-template-columns: 1fr;
+        }
+
+        .blaze-live-countdown-area {
+          padding: 46px 24px;
+          min-height: 340px;
+        }
+
+        .blaze-live-service-times {
+          border-left: 0;
+          border-top: 1px solid rgba(17, 24, 39, 0.08);
+          padding: 32px 24px;
+          text-align: center;
+        }
+
+        .blaze-live-live-card {
+          padding: 24px;
+        }
+
+        .blaze-live-translate a {
+          display: block;
+          margin: 12px auto 0;
+          width: fit-content;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .blaze-live-inner {
+          padding: 18px 12px;
+        }
+
+        .blaze-live-card {
+          border-radius: 18px;
+        }
+
+        .blaze-live-countdown-area {
+          padding: 38px 18px;
+          min-height: 300px;
+        }
+
+        .blaze-live-message {
+          margin-bottom: 26px;
+        }
+
+        .blaze-live-service-times {
+          padding: 28px 18px;
+        }
+
+        .blaze-live-live-card {
+          padding: 16px;
+        }
+
+        .blaze-live-video {
+          border-radius: 14px;
+        }
+      }
+    `;
+
+    function injectStyles() {
+      if (document.getElementById("blaze-live-widget-styles")) return;
+
+      const style = document.createElement("style");
+      style.id = "blaze-live-widget-styles";
+      style.textContent = css;
+      document.head.appendChild(style);
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function getServiceTimes(config) {
+      try {
+        const parsed = JSON.parse(config.serviceTimesJson || "[]");
+
+        if (!Array.isArray(parsed)) return [];
+
+        return parsed
+          .map(section => ({
+            title: String(section?.title || "").trim(),
+            times: Array.isArray(section?.times)
+              ? section.times.map(time => String(time || "").trim()).filter(Boolean)
+              : []
+          }))
+          .filter(section => section.title || section.times.length);
+      } catch {
+        return [];
+      }
+    }
+
+    function formatToday() {
+      return new Intl.DateTimeFormat("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric"
+      }).format(new Date());
+    }
+
+    function formatRemaining(ms) {
+      const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+
+      const days = Math.floor(totalSeconds / 86400);
+      const hours = Math.floor((totalSeconds % 86400) / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+
+      if (days > 0) {
+        return `${days} ${days === 1 ? "day" : "days"}, ${hours} ${hours === 1 ? "hour" : "hours"}, ${minutes} ${minutes === 1 ? "minute" : "minutes"}`;
+      }
+
+      return `${hours} ${hours === 1 ? "hour" : "hours"}, ${minutes} ${minutes === 1 ? "minute" : "minutes"}, ${seconds} ${seconds === 1 ? "second" : "seconds"}`;
+    }
+
+    function shouldShowLive(config) {
+      if (config.displayMode === "forceLive") return true;
+      if (config.displayMode === "forceOffline") return false;
+      return Boolean(config.isLive);
+    }
+
+    function renderServiceTimes(config) {
+      const serviceTimes = getServiceTimes(config);
+
+      if (!serviceTimes.length) return "";
+
+      return `
+        <aside class="blaze-live-service-times">
+          <h2>${escapeHtml(config.serviceTimesTitle || "Service Times")}</h2>
+
+          ${serviceTimes.map(section => `
+            <div class="blaze-live-service-section">
+              ${section.title ? `<strong>${escapeHtml(section.title)}</strong>` : ""}
+              ${section.times.map(time => `
+                <div>${escapeHtml(time)}</div>
+              `).join("")}
+            </div>
+          `).join("")}
+        </aside>
+      `;
+    }
+
+    function renderOffline(config) {
+      clearInterval(countdownTimer);
+
+      const serviceTimesHtml = renderServiceTimes(config);
+      const hasServiceTimes = Boolean(serviceTimesHtml);
+
+      root.innerHTML = `
+        <div class="blaze-live-wrap">
+          <div class="blaze-live-inner">
+            <div class="blaze-live-card blaze-live-offline-card ${hasServiceTimes ? "" : "no-service-times"}">
+              <main class="blaze-live-countdown-area">
+                <div class="blaze-live-countdown-content">
+                  ${config.pageTitle ? `<h1 class="blaze-live-title">${escapeHtml(config.pageTitle)}</h1>` : ""}
+                  ${config.countdownMessage ? `<p class="blaze-live-message">${escapeHtml(config.countdownMessage)}</p>` : ""}
+                  <div id="blaze-live-countdown" class="blaze-live-countdown"></div>
+                </div>
+              </main>
+
+              ${serviceTimesHtml}
+            </div>
+          </div>
+        </div>
+      `;
+
+      const countdownEl = document.getElementById("blaze-live-countdown");
+
+      function tick() {
+        if (!countdownEl) return;
+
+        const target = new Date(config.nextServiceAt || "").getTime();
+        const now = Date.now();
+
+        if (!target || Number.isNaN(target)) {
+          countdownEl.innerHTML = escapeHtml(config.afterCountdownMessage || "Service times coming soon.");
+          countdownEl.className = "blaze-live-after-message";
+          return;
+        }
+
+        const remaining = target - now;
+
+        if (remaining <= 0) {
+          countdownEl.innerHTML = escapeHtml(config.afterCountdownMessage || "Service will begin shortly.");
+          countdownEl.className = "blaze-live-after-message";
+          clearInterval(countdownTimer);
+          return;
+        }
+
+        countdownEl.textContent = formatRemaining(remaining);
+      }
+
+      tick();
+      countdownTimer = setInterval(tick, 1000);
+    }
+
+    function renderLive(config) {
+      clearInterval(countdownTimer);
+
+      const iframeUrl = config.cloudflareIframeUrl || "";
+
+      root.innerHTML = `
+        <div class="blaze-live-wrap">
+          <div class="blaze-live-inner">
+            <div class="blaze-live-card blaze-live-live-card">
+              <div class="blaze-live-video-shell">
+                ${config.showDateAboveStream ? `<div class="blaze-live-date">${formatToday()}</div>` : ""}
+
+                <div class="blaze-live-video">
+                  <iframe
+                    src="${escapeHtml(iframeUrl)}"
+                    allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+                    allowfullscreen="true">
+                  </iframe>
+                </div>
+
+                ${config.translationEnabled ? `
+                  <div class="blaze-live-translate">
+                    <span>${escapeHtml(config.translationText || "Need translation for this service?")}</span>
+                    <a href="${escapeHtml(config.translationUrl || "#")}" target="_blank" rel="noopener">
+                      ${escapeHtml(config.translationButtonText || "Click here")}
+                    </a>
+                  </div>
+                ` : ""}
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function render(config) {
+      injectStyles();
+
+      console.log("Blaze widget config loaded:", config);
+
+      if (shouldShowLive(config)) {
+        renderLive(config);
+      } else {
+        renderOffline(config);
+      }
+    }
+
+    onSnapshot(
+      configRef,
+      snapshot => {
+        console.log("Firestore snapshot received.");
+
+        if (!snapshot.exists()) {
+          root.innerHTML = `
+            <div class="blaze-live-error">
+              Blaze Live Widget config was not found in Firebase.
+            </div>
+          `;
+          return;
+        }
+
+        render(snapshot.data());
+      },
+      error => {
+        console.error("Firestore error:", error);
+
+        root.innerHTML = `
+          <div class="blaze-live-error">
+            Could not load Blaze Live Widget.<br><br>
+            ${escapeHtml(error.message)}
+          </div>
+        `;
+      }
+    );
+  </script>
 </body>
 </html>
